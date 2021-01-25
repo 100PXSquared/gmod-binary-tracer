@@ -152,8 +152,8 @@ namespace Vistrace
 
 		if (!shadow) {
 			const MeshVertex v0 = entList[hitVert[0]]->meshes[hitVert[1]].verts[hitVert[2]];
-			const MeshVertex v1 = entList[hitVert[0]]->meshes[hitVert[1]].verts[static_cast<std::vector<MeshVertex, std::allocator<MeshVertex>>::size_type>(hitVert[2]) + 1];
-			const MeshVertex v2 = entList[hitVert[0]]->meshes[hitVert[1]].verts[static_cast<std::vector<MeshVertex, std::allocator<MeshVertex>>::size_type>(hitVert[2]) + 2];
+			const MeshVertex v1 = entList[hitVert[0]]->meshes[hitVert[1]].verts[static_cast<size_t>(hitVert[2]) + 1];
+			const MeshVertex v2 = entList[hitVert[0]]->meshes[hitVert[1]].verts[static_cast<size_t>(hitVert[2]) + 2];
 
 			out.normal = (1 - u - v) * v0.normal + u * v1.normal + v * v2.normal;;
 			out.u = (1 - u - v) * v0.u + u * v1.u + v * v2.u;
