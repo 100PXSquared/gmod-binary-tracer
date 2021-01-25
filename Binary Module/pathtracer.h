@@ -49,7 +49,7 @@ double sign(const double& num);
 Vector3 uniformSampleHemisphere(const double& r1, const double& r2);
 void createCoordinateSystem(const Vector3& N, Vector3& Nt, Vector3& Nb);
 Vector3 refract(const Vector3& I, const Vector3& N, const double& ior);
-double fresnel(const Vector3& v, const Vector3& h, const double& f0);
+Vector3 fresnel(const Vector3& v, const Vector3& h, const Vector3& f0);
 double getPitch(const Vector3& N);
 double getYaw(const Vector3& N);
 Vector3 getHDRIFromVec(const Vector3& v, const double brightness, const Image::PFM* img = nullptr);

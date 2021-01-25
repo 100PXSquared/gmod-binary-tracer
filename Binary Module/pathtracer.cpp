@@ -89,23 +89,9 @@ Vector3 refract(const Vector3& I, const Vector3& N, const double& ior)
 	return k < 0 ? 0 : eta * I + (eta * cosi - sqrt(k)) * n;
 }
 
-double fresnel(const Vector3& v, const Vector3& h, const double& f0)
+Vector3 fresnel(const Vector3& v, const Vector3& h, const Vector3& f0)
 {
-	double sqrtF0 = sqrt(f0);
-	double coef = (1 + sqrtF0) / (1 - sqrtF0);
-
-	double c = v.dot(h);
-	double g = sqrt(coef * coef + c * c - 1);
-
-	if (isnan(g)) return 1;
-
-	double GmC = g - c;
-	double GpC = g + c;
-
-	double leftSide = GmC / GpC;
-	double rightSide = (GpC * c - 1) / (GmC * c + 1);
-
-	return 0.5 * leftSide * leftSide * (1 + rightSide * rightSide);
+	return f0 + (1. - f0) * pow((1. - v.dot(h)), 5);
 }
 
 double getPitch(const Vector3& N)
@@ -163,7 +149,7 @@ Vector3 tracePath(
 
 	Vector3 brdfColour = Vector3(0.);
 	Vector3 transmission = Vector3(0.);
-	double kr = 0.;//fresnel(direction, hit.normal, hit.mat->ior);
+	//double kr = 0.;//fresnel(direction, hit.normal, hit.mat->ior); TRANSMISSION DISABLED TEMPORARILY
 
 	Vector3 diffuseAlbedo = getPixel(hit.u, hit.v, hit.mat->texture, textures) * hit.mat->colour;
 
@@ -192,49 +178,47 @@ Vector3 tracePath(
 			Vector3 outDir = -direction;
 
 			// Compute f0 for fresnel
-			double f0 = abs((1.0 - hit.mat->ior) / (1.0 + hit.mat->ior));
+			Vector3 f0 = abs((1.0 - hit.mat->ior) / (1.0 + hit.mat->ior));
 			f0 *= f0;
+			f0 = f0.lerp(hit.mat->colour, hit.mat->metalness);
 
 			for (int n = 0; n < samples; n++) {
 				Vector3 bounceColour = bounceAlbedo;
 
-				// calculate microfacet normal and fresnel
-				Vector3 m;
-				Vector3 specularDir = cook.sample(outDir, hit.normal, distribution(engine), distribution(engine), hit.mat, m);
-				double krSample = fresnel(outDir, m, f0);
-				kr += krSample;
-
-				// russian roulette between diffuse annd specular
-				if (distribution(engine) > krSample) { // if the random number is higher than kr, sample diffuse
-					Vector3 diffuseDir = lambert.sample(outDir, hit.normal, distribution(engine), distribution(engine));
+				// russian roulette diffuse or specular using roughness
+				if (distribution(engine) < hit.mat->roughness) {
+					Vector3 sample = lambert.sample(outDir, hit.normal, distribution(engine), distribution(engine));
 
 					indirectLighting += lambert.evaluate(tracePath(
-						biased, diffuseDir,
+						biased, sample,
 						depth + 1, 1,
 						ents, lights, textures,
 						hdri, hdriBrightness, viewHDRIBrightness,
 						albedo, depthAndObjID, normal, bounceColour
-					), diffuseDir, hit.normal) / lambert.pdf(diffuseDir, hit.normal);
+					), sample, hit.normal) / lambert.pdf(sample, hit.normal);
 				} else {
-					indirectLighting += cook.evaluate(tracePath(
-						biased, specularDir,
+					Vector3 m;
+					Vector3 sample = cook.sample(outDir, hit.normal, distribution(engine), distribution(engine), hit.mat, m);
+
+					indirectLighting += fresnel(outDir, m, f0) * cook.evaluate(tracePath(
+						biased, sample,
 						depth + 1, samples,
 						ents, lights, textures,
 						hdri, hdriBrightness, viewHDRIBrightness,
 						albedo, depthAndObjID, normal, bounceColour
-					), specularDir, outDir, hit.normal, m, hit.mat) / cook.pdf(specularDir, m, hit.normal, hit.mat);
+					), sample, outDir, hit.normal, m, hit.mat) / cook.pdf(sample, m, hit.normal, hit.mat);
 				}
 			}
 
 			// Calculate final colour and average fresnel
-			indirectLighting /= samples;//(1 - krCook) * (1 - hit.mat->metalness) * diffuse / samples + specular / samples;
-			kr /= samples;
+			indirectLighting /= samples;
 		}
 #endif
 		bounceAlbedo *= diffuseAlbedo;
 		brdfColour = (directLighting / M_PI + 2. * indirectLighting) * bounceAlbedo;
 	}
-	if (hit.mat->alpha != 1.) {
+	// TRANSMISSION IS TEMPORARILY DISABLED UNTIL I GET A METHOD THAT WORKS BETTER WITH COLOURED FRESNEL
+	/*if (hit.mat->alpha != 1.) {
 		if (kr < 1.) { // Not total internal reflection
 			Vector3 transmitBounceAlbedo = Vector3(1.);
 			transmission = tracePath(
@@ -245,7 +229,7 @@ Vector3 tracePath(
 				albedo, depthAndObjID, normal, transmitBounceAlbedo
 			);
 		}
-	}
+	}*/
 
 	// if this is a camera ray, output to the denoiser channels
 	if (bCameraRay) {

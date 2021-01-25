@@ -103,6 +103,10 @@ Vector3 CookTorranceBRDF::sample(const Vector3& outputDirection, const Vector3& 
 	double theta = atan(sqrt(-(mat->roughness * mat->roughness) * log(1 - r1)));
 	double phiM = 2 * M_PI * r2;
 	m = TransformToWorld(sin(theta) * cos(phiM), sin(theta) * sin(phiM), cos(theta), normal).getNormalised();
+
+	if (m.dot(outputDirection) < 0) // hitting backface, reflect normal
+		m = reflect(-m, normal);
+
 	return (2 * abs(outputDirection.dot(m)) * m - outputDirection).getNormalised();
 }
 
